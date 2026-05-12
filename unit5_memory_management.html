@@ -1,0 +1,1435 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Unit 5 — Memory Management | OS Notes</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0e1a;
+    --bg2: #0f1525;
+    --bg3: #141c30;
+    --border: #1e2d4a;
+    --accent: #00d4ff;
+    --accent2: #7c3aed;
+    --accent3: #f59e0b;
+    --accent4: #10b981;
+    --accent5: #f43f5e;
+    --text: #e2e8f0;
+    --text-muted: #64748b;
+    --text-dim: #94a3b8;
+    --sidebar-w: 280px;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 15px;
+    line-height: 1.7;
+    display: flex;
+    min-height: 100vh;
+  }
+
+  /* ─── Sidebar ─── */
+  #sidebar {
+    position: fixed;
+    top: 0; left: 0;
+    width: var(--sidebar-w);
+    height: 100vh;
+    background: var(--bg2);
+    border-right: 1px solid var(--border);
+    overflow-y: auto;
+    z-index: 100;
+    display: flex;
+    flex-direction: column;
+  }
+
+  #sidebar::-webkit-scrollbar { width: 4px; }
+  #sidebar::-webkit-scrollbar-track { background: transparent; }
+  #sidebar::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+  .sidebar-header {
+    padding: 24px 20px 16px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .sidebar-header .subject-tag {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    color: var(--accent);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    margin-bottom: 6px;
+  }
+
+  .sidebar-header h2 {
+    font-family: 'Syne', sans-serif;
+    font-size: 16px;
+    font-weight: 800;
+    color: var(--text);
+    line-height: 1.3;
+  }
+
+  .sidebar-header .unit-badge {
+    display: inline-block;
+    margin-top: 8px;
+    background: linear-gradient(135deg, var(--accent2), var(--accent));
+    color: #fff;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    padding: 3px 10px;
+    border-radius: 20px;
+    letter-spacing: 1px;
+  }
+
+  .nav-section {
+    padding: 12px 0;
+  }
+
+  .nav-section-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px;
+    color: var(--text-muted);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    padding: 4px 20px 8px;
+  }
+
+  .nav-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 9px 20px;
+    color: var(--text-dim);
+    text-decoration: none;
+    font-size: 13px;
+    font-weight: 400;
+    transition: all 0.2s;
+    border-left: 2px solid transparent;
+    cursor: pointer;
+  }
+
+  .nav-item:hover,
+  .nav-item.active {
+    color: var(--accent);
+    background: rgba(0, 212, 255, 0.05);
+    border-left-color: var(--accent);
+  }
+
+  .nav-item .num {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    color: var(--text-muted);
+    min-width: 28px;
+  }
+
+  .nav-item.active .num { color: var(--accent); }
+
+  /* ─── Main Content ─── */
+  #main {
+    margin-left: var(--sidebar-w);
+    flex: 1;
+    min-height: 100vh;
+  }
+
+  .hero {
+    background: var(--bg2);
+    border-bottom: 1px solid var(--border);
+    padding: 56px 60px 40px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .hero::before {
+    content: '';
+    position: absolute;
+    top: -60px; right: -60px;
+    width: 300px; height: 300px;
+    background: radial-gradient(circle, rgba(124,58,237,0.15) 0%, transparent 70%);
+    pointer-events: none;
+  }
+
+  .hero::after {
+    content: '';
+    position: absolute;
+    bottom: -40px; left: 200px;
+    width: 200px; height: 200px;
+    background: radial-gradient(circle, rgba(0,212,255,0.08) 0%, transparent 70%);
+    pointer-events: none;
+  }
+
+  .hero-meta {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 16px;
+  }
+
+  .chip {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    padding: 4px 12px;
+    border-radius: 20px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+  }
+
+  .chip-os { background: rgba(124,58,237,0.2); color: var(--accent2); border: 1px solid rgba(124,58,237,0.3); }
+  .chip-unit { background: rgba(0,212,255,0.1); color: var(--accent); border: 1px solid rgba(0,212,255,0.2); }
+
+  .hero h1 {
+    font-family: 'Syne', sans-serif;
+    font-size: 42px;
+    font-weight: 800;
+    line-height: 1.1;
+    color: var(--text);
+    margin-bottom: 12px;
+  }
+
+  .hero h1 span {
+    background: linear-gradient(90deg, var(--accent), var(--accent2));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .hero-desc {
+    color: var(--text-dim);
+    font-size: 15px;
+    max-width: 560px;
+  }
+
+  .hero-stats {
+    display: flex;
+    gap: 24px;
+    margin-top: 24px;
+  }
+
+  .stat {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .stat-num {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--accent);
+  }
+
+  .stat-label {
+    font-size: 11px;
+    color: var(--text-muted);
+    letter-spacing: 0.5px;
+  }
+
+  /* ─── Content Area ─── */
+  .content {
+    padding: 48px 60px;
+    max-width: 900px;
+  }
+
+  /* ─── Section ─── */
+  .section {
+    margin-bottom: 64px;
+    animation: fadeUp 0.5s ease both;
+  }
+
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  .section-header {
+    display: flex;
+    align-items: flex-start;
+    gap: 16px;
+    margin-bottom: 28px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .section-num {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--accent);
+    background: rgba(0,212,255,0.1);
+    border: 1px solid rgba(0,212,255,0.2);
+    padding: 4px 10px;
+    border-radius: 6px;
+    white-space: nowrap;
+    margin-top: 4px;
+  }
+
+  .section h2 {
+    font-family: 'Syne', sans-serif;
+    font-size: 26px;
+    font-weight: 700;
+    color: var(--text);
+    line-height: 1.2;
+  }
+
+  .section h3 {
+    font-family: 'Syne', sans-serif;
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--text);
+    margin: 24px 0 10px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .section h3::before {
+    content: '';
+    display: inline-block;
+    width: 3px; height: 16px;
+    background: var(--accent3);
+    border-radius: 2px;
+  }
+
+  .section p {
+    color: var(--text-dim);
+    margin-bottom: 14px;
+    line-height: 1.8;
+  }
+
+  /* ─── Info Box ─── */
+  .info-box {
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--accent);
+    border-radius: 8px;
+    padding: 16px 20px;
+    margin: 16px 0;
+    font-size: 14px;
+    color: var(--text-dim);
+  }
+
+  .info-box.warning { border-left-color: var(--accent3); }
+  .info-box.success { border-left-color: var(--accent4); }
+  .info-box.danger  { border-left-color: var(--accent5); }
+
+  .info-box strong {
+    color: var(--text);
+    display: block;
+    margin-bottom: 4px;
+    font-family: 'Syne', sans-serif;
+    font-size: 13px;
+  }
+
+  /* ─── Formula Box ─── */
+  .formula {
+    background: #0d1220;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px 20px;
+    margin: 14px 0;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    color: var(--accent4);
+    overflow-x: auto;
+  }
+
+  .formula .label {
+    font-size: 10px;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 6px;
+    font-family: 'DM Sans', sans-serif;
+    display: block;
+  }
+
+  /* ─── Table ─── */
+  .table-wrap {
+    overflow-x: auto;
+    margin: 18px 0;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13.5px;
+  }
+
+  thead tr {
+    background: var(--bg3);
+    border-bottom: 1px solid var(--border);
+  }
+
+  th {
+    padding: 12px 16px;
+    text-align: left;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--accent);
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    font-weight: 600;
+  }
+
+  td {
+    padding: 11px 16px;
+    color: var(--text-dim);
+    border-bottom: 1px solid rgba(30,45,74,0.5);
+    vertical-align: top;
+  }
+
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: rgba(0,212,255,0.02); }
+
+  /* ─── Grid Cards ─── */
+  .grid-2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin: 16px 0;
+  }
+
+  .grid-3 {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 14px;
+    margin: 16px 0;
+  }
+
+  .card {
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 18px;
+    transition: border-color 0.2s;
+  }
+
+  .card:hover { border-color: rgba(0,212,255,0.3); }
+
+  .card-icon {
+    font-size: 22px;
+    margin-bottom: 10px;
+  }
+
+  .card-title {
+    font-family: 'Syne', sans-serif;
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--text);
+    margin-bottom: 6px;
+  }
+
+  .card-body {
+    font-size: 13px;
+    color: var(--text-dim);
+    line-height: 1.6;
+  }
+
+  /* ─── Algo Trace ─── */
+  .algo-trace {
+    background: #0d1220;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 20px;
+    margin: 16px 0;
+    overflow-x: auto;
+  }
+
+  .algo-title {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--accent3);
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    margin-bottom: 14px;
+  }
+
+  .trace-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 8px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    flex-wrap: wrap;
+  }
+
+  .trace-label {
+    color: var(--text-muted);
+    min-width: 80px;
+    font-size: 11px;
+  }
+
+  .frame {
+    width: 36px; height: 36px;
+    display: flex; align-items: center; justify-content: center;
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text);
+    font-size: 14px;
+    font-weight: 600;
+    transition: all 0.2s;
+  }
+
+  .frame.fault { border-color: var(--accent5); color: var(--accent5); background: rgba(244,63,94,0.1); }
+  .frame.hit   { border-color: var(--accent4); color: var(--accent4); background: rgba(16,185,129,0.1); }
+  .frame.empty { opacity: 0.3; }
+
+  .fault-marker {
+    font-size: 10px;
+    color: var(--accent5);
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  /* ─── List ─── */
+  .styled-list {
+    list-style: none;
+    padding: 0;
+    margin: 12px 0;
+  }
+
+  .styled-list li {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    color: var(--text-dim);
+    font-size: 14px;
+    padding: 6px 0;
+    line-height: 1.6;
+  }
+
+  .styled-list li::before {
+    content: '▸';
+    color: var(--accent);
+    font-size: 11px;
+    margin-top: 4px;
+    flex-shrink: 0;
+  }
+
+  .highlight { color: var(--text); font-weight: 500; }
+  .accent-text { color: var(--accent); font-weight: 500; }
+  .warn-text { color: var(--accent3); font-weight: 500; }
+  .danger-text { color: var(--accent5); font-weight: 500; }
+  .success-text { color: var(--accent4); font-weight: 500; }
+
+  /* ─── Diagram ─── */
+  .diagram {
+    background: #0d1220;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 24px;
+    margin: 16px 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .mem-block {
+    display: flex;
+    gap: 3px;
+    align-items: stretch;
+  }
+
+  .mem-seg {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 10px 16px;
+    border-radius: 6px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    font-weight: 600;
+    min-width: 90px;
+    text-align: center;
+  }
+
+  .mem-seg .seg-label { font-size: 10px; opacity: 0.7; margin-top: 3px; }
+  .ms-os    { background: rgba(124,58,237,0.25); border: 1px solid rgba(124,58,237,0.4); color: #a78bfa; }
+  .ms-p1    { background: rgba(0,212,255,0.15); border: 1px solid rgba(0,212,255,0.3); color: var(--accent); }
+  .ms-p2    { background: rgba(16,185,129,0.15); border: 1px solid rgba(16,185,129,0.3); color: var(--accent4); }
+  .ms-free  { background: rgba(100,116,139,0.1); border: 1px dashed rgba(100,116,139,0.3); color: var(--text-muted); }
+  .ms-frag  { background: rgba(244,63,94,0.1); border: 1px dashed rgba(244,63,94,0.3); color: var(--accent5); }
+
+  .arrow-right {
+    color: var(--text-muted);
+    font-size: 20px;
+    display: flex;
+    align-items: center;
+  }
+
+  /* ─── Page Table Visual ─── */
+  .page-visual {
+    display: flex;
+    gap: 32px;
+    align-items: flex-start;
+    justify-content: center;
+    flex-wrap: wrap;
+    padding: 20px;
+  }
+
+  .pt-col {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .pt-col-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    color: var(--text-muted);
+    text-align: center;
+    letter-spacing: 1px;
+    margin-bottom: 6px;
+  }
+
+  .pt-row {
+    display: flex;
+    gap: 2px;
+    align-items: center;
+  }
+
+  .pt-cell {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    padding: 6px 12px;
+    border-radius: 4px;
+    min-width: 60px;
+    text-align: center;
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+  }
+
+  .pt-cell.header { background: rgba(0,212,255,0.1); color: var(--accent); border-color: rgba(0,212,255,0.2); font-size: 10px; }
+  .pt-cell.mapped { background: rgba(16,185,129,0.1); color: var(--accent4); border-color: rgba(16,185,129,0.2); }
+  .pt-arrow { color: var(--accent3); font-size: 16px; padding: 0 6px; }
+
+  /* ─── Working Set Visual ─── */
+  .ws-timeline {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 12px;
+  }
+
+  .ws-row {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .ws-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    color: var(--text-muted);
+    min-width: 70px;
+    letter-spacing: 0.5px;
+  }
+
+  .ws-cell {
+    width: 30px; height: 28px;
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    border-radius: 4px;
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+  }
+
+  .ws-cell.active { background: rgba(0,212,255,0.15); border-color: rgba(0,212,255,0.4); color: var(--accent); font-weight: 700; }
+  .ws-cell.window { background: rgba(245,158,11,0.1); border-color: rgba(245,158,11,0.3); color: var(--accent3); }
+
+  /* ─── Back to Top ─── */
+  #topBtn {
+    position: fixed;
+    bottom: 28px; right: 28px;
+    background: var(--accent2);
+    color: white;
+    border: none;
+    padding: 10px 14px;
+    border-radius: 8px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    cursor: pointer;
+    z-index: 99;
+    opacity: 0;
+    transition: opacity 0.3s;
+  }
+
+  #topBtn.show { opacity: 1; }
+  #topBtn:hover { background: var(--accent); }
+
+  /* ─── Progress bar ─── */
+  #progress {
+    position: fixed;
+    top: 0; left: var(--sidebar-w); right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, var(--accent), var(--accent2));
+    transform-origin: left;
+    transform: scaleX(0);
+    z-index: 999;
+    transition: transform 0.1s;
+  }
+
+  @media (max-width: 900px) {
+    :root { --sidebar-w: 0px; }
+    #sidebar { transform: translateX(-280px); }
+    .hero { padding: 32px 24px 24px; }
+    .content { padding: 32px 24px; }
+    .hero h1 { font-size: 28px; }
+    .grid-2, .grid-3 { grid-template-columns: 1fr; }
+    #progress { left: 0; }
+  }
+</style>
+</head>
+<body>
+
+<div id="progress"></div>
+
+<!-- SIDEBAR -->
+<nav id="sidebar">
+  <div class="sidebar-header">
+    <div class="subject-tag">Operating Systems</div>
+    <h2>Memory Management</h2>
+    <span class="unit-badge">Unit 5</span>
+  </div>
+
+  <div class="nav-section">
+    <div class="nav-section-label">Topics</div>
+    <a class="nav-item active" href="#s1">
+      <span class="num">5.1</span> Basic Concepts
+    </a>
+    <a class="nav-item" href="#s2">
+      <span class="num">5.2</span> Memory Allocation
+    </a>
+    <a class="nav-item" href="#s3">
+      <span class="num">5.3</span> Paging
+    </a>
+    <a class="nav-item" href="#s4">
+      <span class="num">5.4</span> Virtual Memory
+    </a>
+    <a class="nav-item" href="#s5">
+      <span class="num">5.5</span> Locality & Page Fault
+    </a>
+    <a class="nav-item" href="#s6">
+      <span class="num">5.6</span> Page Replacement
+    </a>
+  </div>
+</nav>
+
+<!-- MAIN -->
+<main id="main">
+  <div class="hero">
+    <div class="hero-meta">
+      <span class="chip chip-os">Operating Systems</span>
+      <span class="chip chip-unit">Unit 5</span>
+    </div>
+    <h1>Memory <span>Management</span></h1>
+    <p class="hero-desc">From basic address mapping to advanced page replacement — a complete guide to how OS manages the most critical resource: memory.</p>
+    <div class="hero-stats">
+      <div class="stat"><div class="stat-num">6</div><div class="stat-label">Topics</div></div>
+      <div class="stat"><div class="stat-num">5</div><div class="stat-label">Algorithms</div></div>
+      <div class="stat"><div class="stat-num">∞</div><div class="stat-label">Virtual Space</div></div>
+    </div>
+  </div>
+
+  <div class="content">
+
+    <!-- ═══════════════════════════════ 5.1 ═══════════════════════════════ -->
+    <div class="section" id="s1">
+      <div class="section-header">
+        <span class="section-num">5.1</span>
+        <h2>Basic Concepts — Logical & Physical Address Map</h2>
+      </div>
+
+      <p>Memory management is the OS function that manages the primary memory (RAM). It keeps track of each byte in memory, allocates and deallocates memory to processes, and ensures protection between processes.</p>
+
+      <h3>Why Memory Management?</h3>
+      <ul class="styled-list">
+        <li>Multiple processes must coexist in RAM simultaneously.</li>
+        <li>Each process needs its own isolated address space.</li>
+        <li>Efficient utilization of limited physical memory is critical.</li>
+        <li>Provides illusion of unlimited memory via virtual memory.</li>
+      </ul>
+
+      <h3>Logical Address (Virtual Address)</h3>
+      <div class="info-box">
+        <strong>Definition</strong>
+        An address generated by the CPU during program execution. Also called <span class="accent-text">virtual address</span>. The process uses logical addresses; it has no knowledge of physical memory layout.
+      </div>
+      <ul class="styled-list">
+        <li>Generated by the CPU for every memory reference.</li>
+        <li>Starts from <span class="highlight">0</span> for every process (each process has its own address space).</li>
+        <li>The set of all logical addresses is the <span class="highlight">Logical Address Space</span>.</li>
+      </ul>
+
+      <h3>Physical Address</h3>
+      <div class="info-box">
+        <strong>Definition</strong>
+        The actual address in <span class="accent-text">RAM</span> where the data resides. Managed by the Memory Management Unit (MMU).
+      </div>
+      <ul class="styled-list">
+        <li>The set of all physical addresses is the <span class="highlight">Physical Address Space</span>.</li>
+        <li>Physical addresses are <em>not</em> directly visible to user processes.</li>
+      </ul>
+
+      <h3>Address Translation (MMU)</h3>
+      <p>The <span class="highlight">Memory Management Unit (MMU)</span> is a hardware device that maps logical addresses to physical addresses at runtime.</p>
+
+      <div class="diagram">
+        <div style="font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--text-muted); margin-bottom:12px;">ADDRESS TRANSLATION FLOW</div>
+        <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;justify-content:center;">
+          <div style="background:rgba(124,58,237,0.2);border:1px solid rgba(124,58,237,0.4);border-radius:8px;padding:12px 20px;text-align:center;">
+            <div style="font-family:'JetBrains Mono',monospace;font-size:11px;color:#a78bfa;">CPU</div>
+            <div style="font-size:13px;color:var(--text);margin-top:4px;">Logical Addr</div>
+            <div style="font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--accent);">0x0042</div>
+          </div>
+          <div class="arrow-right">→</div>
+          <div style="background:rgba(245,158,11,0.15);border:1px solid rgba(245,158,11,0.3);border-radius:8px;padding:12px 20px;text-align:center;">
+            <div style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--accent3);">MMU</div>
+            <div style="font-size:13px;color:var(--text);margin-top:4px;">+ Relocation Reg</div>
+            <div style="font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--accent3);">+ base</div>
+          </div>
+          <div class="arrow-right">→</div>
+          <div style="background:rgba(16,185,129,0.15);border:1px solid rgba(16,185,129,0.3);border-radius:8px;padding:12px 20px;text-align:center;">
+            <div style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--accent4);">RAM</div>
+            <div style="font-size:13px;color:var(--text);margin-top:4px;">Physical Addr</div>
+            <div style="font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--accent4);">0x5042</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="formula">
+        <span class="label">Formula</span>
+        Physical Address = Logical Address + Relocation Register (Base Register)
+      </div>
+
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Property</th><th>Logical Address</th><th>Physical Address</th></tr></thead>
+          <tbody>
+            <tr><td>Generated by</td><td>CPU</td><td>MMU (hardware)</td></tr>
+            <tr><td>Visible to</td><td>User Program</td><td>Only OS & hardware</td></tr>
+            <tr><td>Range</td><td>0 to (max-1) per process</td><td>Actual RAM locations</td></tr>
+            <tr><td>Also called</td><td>Virtual Address</td><td>Real Address</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ═══════════════════════════════ 5.2 ═══════════════════════════════ -->
+    <div class="section" id="s2">
+      <div class="section-header">
+        <span class="section-num">5.2</span>
+        <h2>Memory Allocation</h2>
+      </div>
+
+      <h3>Contiguous Memory Allocation</h3>
+      <p>Each process occupies a <span class="highlight">single contiguous block</span> of memory. Memory is divided between the OS (low memory) and user processes (high memory).</p>
+
+      <h3>Fixed Partition (Static Partitioning)</h3>
+      <div class="info-box warning">
+        <strong>Fixed Partitioning</strong>
+        Memory is divided into <span class="warn-text">fixed-size</span> partitions at boot time. Each partition holds exactly one process.
+      </div>
+
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-icon">✅</div>
+          <div class="card-title">Advantages</div>
+          <div class="card-body">Simple to implement. Easy to manage. Low OS overhead.</div>
+        </div>
+        <div class="card">
+          <div class="card-icon">❌</div>
+          <div class="card-title">Disadvantages</div>
+          <div class="card-body">Internal fragmentation is severe. Number of partitions limits degree of multiprogramming.</div>
+        </div>
+      </div>
+
+      <h3>Variable Partition (Dynamic Partitioning)</h3>
+      <div class="info-box success">
+        <strong>Dynamic Partitioning</strong>
+        Partitions are created dynamically as processes arrive. Each process gets exactly as much memory as it needs.
+      </div>
+
+      <p><span class="highlight">Allocation Strategies:</span></p>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Strategy</th><th>Method</th><th>Best For</th></tr></thead>
+          <tbody>
+            <tr><td><span class="accent-text">First Fit</span></td><td>Allocate first hole that is big enough</td><td>Speed</td></tr>
+            <tr><td><span class="success-text">Best Fit</span></td><td>Allocate smallest hole that is big enough</td><td>Min waste</td></tr>
+            <tr><td><span class="warn-text">Worst Fit</span></td><td>Allocate largest hole available</td><td>Large leftover</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>Internal Fragmentation</h3>
+      <div class="info-box danger">
+        <strong>Internal Fragmentation</strong>
+        Wasted space <span class="danger-text">inside</span> an allocated partition. Occurs in fixed partitioning when process is smaller than partition.
+      </div>
+      <div class="formula">
+        <span class="label">Example</span>
+        Partition size = 100 KB,  Process size = 82 KB
+        Internal Fragmentation = 100 - 82 = 18 KB  (wasted inside partition)
+      </div>
+
+      <h3>External Fragmentation</h3>
+      <div class="info-box danger">
+        <strong>External Fragmentation</strong>
+        Total free memory is enough but scattered in <span class="danger-text">non-contiguous</span> holes. No single hole is large enough. Occurs in dynamic partitioning.
+      </div>
+
+      <div class="diagram">
+        <div style="font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--text-muted); margin-bottom:16px; text-align:center;">EXTERNAL FRAGMENTATION — Small scattered holes cannot serve large process</div>
+        <div class="mem-block">
+          <div class="mem-seg ms-os">OS<div class="seg-label">100KB</div></div>
+          <div class="mem-seg ms-p1">P1<div class="seg-label">200KB</div></div>
+          <div class="mem-seg ms-frag">FREE<div class="seg-label">30KB</div></div>
+          <div class="mem-seg ms-p2">P2<div class="seg-label">150KB</div></div>
+          <div class="mem-seg ms-frag">FREE<div class="seg-label">40KB</div></div>
+          <div class="mem-seg ms-free">FREE<div class="seg-label">20KB</div></div>
+        </div>
+        <div style="font-size:13px;color:var(--accent5);margin-top:12px;">Total free = 90KB, but P3 needing 80KB cannot be loaded (no contiguous block)</div>
+      </div>
+
+      <h3>Compaction</h3>
+      <div class="info-box success">
+        <strong>Compaction</strong>
+        The OS shuffles memory contents to place all free holes together, forming one large contiguous block. Solves external fragmentation but is <span class="warn-text">expensive</span> (requires relocation).
+      </div>
+      <ul class="styled-list">
+        <li>Only possible if relocation is dynamic (done at execution time).</li>
+        <li>High overhead — all processes must be moved.</li>
+        <li>Alternative: <span class="highlight">Paging</span> (eliminates external fragmentation entirely).</li>
+      </ul>
+    </div>
+
+    <!-- ═══════════════════════════════ 5.3 ═══════════════════════════════ -->
+    <div class="section" id="s3">
+      <div class="section-header">
+        <span class="section-num">5.3</span>
+        <h2>Paging</h2>
+      </div>
+
+      <h3>Principle of Operation</h3>
+      <p>Paging is a <span class="highlight">non-contiguous</span> memory allocation scheme that eliminates external fragmentation.</p>
+      <ul class="styled-list">
+        <li><span class="highlight">Page:</span> Fixed-size logical memory blocks (e.g., 4 KB).</li>
+        <li><span class="highlight">Frame:</span> Fixed-size physical memory blocks of same size as page.</li>
+        <li>Any page can be mapped to any free frame — no external fragmentation!</li>
+        <li>A <span class="accent-text">Page Table</span> maintained per process maps page → frame numbers.</li>
+      </ul>
+
+      <h3>Address Structure in Paging</h3>
+      <p>A logical address is divided into two parts:</p>
+      <div class="formula">
+        <span class="label">Logical Address Structure</span>
+        [ Page Number (p) | Page Offset (d) ]
+
+        If logical address space = 2^m, page size = 2^n:
+          Page Number  = m - n bits
+          Page Offset  = n bits
+      </div>
+      <div class="formula">
+        <span class="label">Physical Address Calculation</span>
+        Physical Address = (Frame Number × Page Size) + Page Offset
+                        = (PageTable[p] × 2^n) + d
+      </div>
+
+      <h3>Page Table Visual</h3>
+      <div class="diagram">
+        <div class="page-visual">
+          <div class="pt-col">
+            <div class="pt-col-label">LOGICAL ADDR</div>
+            <div class="pt-row"><div class="pt-cell header">p</div><div class="pt-cell header">d</div></div>
+            <div class="pt-row"><div class="pt-cell">0</div><div class="pt-cell">offset</div></div>
+            <div class="pt-row"><div class="pt-cell">1</div><div class="pt-cell">offset</div></div>
+            <div class="pt-row"><div class="pt-cell">2</div><div class="pt-cell">offset</div></div>
+            <div class="pt-row"><div class="pt-cell">3</div><div class="pt-cell">offset</div></div>
+          </div>
+          <div class="pt-col" style="display:flex;flex-direction:column;justify-content:center;gap:4px;margin-top:30px;">
+            <div class="pt-col-label">PAGE TABLE</div>
+            <div class="pt-row"><div class="pt-cell header">Page</div><div class="pt-cell header">Frame</div></div>
+            <div class="pt-row"><div class="pt-cell">0</div><div class="pt-cell mapped">5</div></div>
+            <div class="pt-row"><div class="pt-cell">1</div><div class="pt-cell mapped">2</div></div>
+            <div class="pt-row"><div class="pt-cell">2</div><div class="pt-cell mapped">9</div></div>
+            <div class="pt-row"><div class="pt-cell">3</div><div class="pt-cell mapped">1</div></div>
+          </div>
+          <div class="pt-col">
+            <div class="pt-col-label">PHYSICAL MEM (FRAMES)</div>
+            <div class="pt-row"><div class="pt-cell">Frame 0</div></div>
+            <div class="pt-row"><div class="pt-cell mapped">Frame 1 ← P3</div></div>
+            <div class="pt-row"><div class="pt-cell mapped">Frame 2 ← P1</div></div>
+            <div class="pt-row"><div class="pt-cell">Frame 3</div></div>
+            <div class="pt-row"><div class="pt-cell">Frame 4</div></div>
+            <div class="pt-row"><div class="pt-cell mapped">Frame 5 ← P0</div></div>
+            <div class="pt-row"><div class="pt-cell">...</div></div>
+            <div class="pt-row"><div class="pt-cell mapped">Frame 9 ← P2</div></div>
+          </div>
+        </div>
+      </div>
+
+      <h3>Hardware Support for Paging</h3>
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-title">Page Table Register (PTBR)</div>
+          <div class="card-body">Points to the page table in memory. On context switch, only PTBR needs to be changed.</div>
+        </div>
+        <div class="card">
+          <div class="card-title">TLB — Translation Lookaside Buffer</div>
+          <div class="card-body">A fast hardware cache for page table entries. Converts 2 memory accesses to ~1 on a TLB hit. Hit ratio typically > 98%.</div>
+        </div>
+      </div>
+
+      <div class="formula">
+        <span class="label">Effective Access Time (EAT) with TLB</span>
+        EAT = (TLB hit ratio × 1 memory access) + ((1 - hit ratio) × 2 memory accesses)
+        
+        Example: hit ratio = 0.98, mem access = 100ns
+        EAT = 0.98 × 100 + 0.02 × 200 = 98 + 4 = 102 ns
+      </div>
+
+      <h3>Page Allocation</h3>
+      <ul class="styled-list">
+        <li>OS maintains a <span class="highlight">free-frame list</span>.</li>
+        <li>When a process arrives, OS allocates n free frames (where n = ⌈process size / page size⌉).</li>
+        <li>Page table is filled with corresponding frame numbers.</li>
+      </ul>
+
+      <h3>Protection & Sharing in Paging</h3>
+      <p><span class="highlight">Protection:</span> Each page table entry has protection bits:</p>
+      <ul class="styled-list">
+        <li><span class="accent-text">Valid bit:</span> 1 = page in logical space, 0 = illegal access → trap to OS.</li>
+        <li><span class="warn-text">R/W/X bits:</span> Control read, write, execute permissions per page.</li>
+      </ul>
+      <p><span class="highlight">Sharing:</span> Multiple page tables can point to the same frame (shared code/libraries). Each process has its own page table for private data.</p>
+
+      <h3>Disadvantages of Paging</h3>
+      <div class="info-box warning">
+        <strong>Key Drawbacks</strong>
+        <ul class="styled-list" style="margin-top:6px;">
+          <li><span class="warn-text">Internal fragmentation</span> — last page may be partially filled.</li>
+          <li>Page table can be very large (32-bit addr, 4KB pages → 1M entries).</li>
+          <li>Every memory access requires <span class="warn-text">2 memory accesses</span> (page table + actual data) unless TLB is used.</li>
+          <li>No concept of "logical grouping" — code and data cannot be easily separated.</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- ═══════════════════════════════ 5.4 ═══════════════════════════════ -->
+    <div class="section" id="s4">
+      <div class="section-header">
+        <span class="section-num">5.4</span>
+        <h2>Virtual Memory — Basics, Hardware & Control Structures</h2>
+      </div>
+
+      <h3>What is Virtual Memory?</h3>
+      <div class="info-box">
+        <strong>Virtual Memory</strong>
+        A technique that allows execution of processes that may <span class="accent-text">not be completely loaded in physical memory</span>. Gives the illusion of a very large memory to each process.
+      </div>
+
+      <ul class="styled-list">
+        <li>Only the <span class="highlight">currently needed portions</span> of a program reside in RAM.</li>
+        <li>Rest of the program lives on <span class="highlight">disk</span> (swap space / page file).</li>
+        <li>Enables programs larger than physical memory to run.</li>
+        <li>Increases degree of multiprogramming — more processes can be active.</li>
+        <li>Implemented mainly via <span class="accent-text">Demand Paging</span>.</li>
+      </ul>
+
+      <h3>Benefits of Virtual Memory</h3>
+      <div class="grid-3">
+        <div class="card">
+          <div class="card-icon">📦</div>
+          <div class="card-title">Large Programs</div>
+          <div class="card-body">Run programs bigger than physical RAM.</div>
+        </div>
+        <div class="card">
+          <div class="card-icon">🔗</div>
+          <div class="card-title">Shared Memory</div>
+          <div class="card-body">Shared libraries loaded once, mapped into multiple virtual spaces.</div>
+        </div>
+        <div class="card">
+          <div class="card-icon">⚡</div>
+          <div class="card-title">Fast Process Creation</div>
+          <div class="card-body">Fork() can use copy-on-write — no immediate copying of pages.</div>
+        </div>
+      </div>
+
+      <h3>Hardware Support</h3>
+      <p>Virtual memory requires hardware + OS cooperation:</p>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Component</th><th>Role</th></tr></thead>
+          <tbody>
+            <tr><td><span class="accent-text">MMU (Memory Mgmt Unit)</span></td><td>Translates virtual to physical addresses using page tables</td></tr>
+            <tr><td><span class="accent-text">TLB</span></td><td>Caches recent virtual→physical translations for speed</td></tr>
+            <tr><td><span class="accent-text">Valid/Invalid Bit</span></td><td>Marks whether a page is currently in RAM or on disk</td></tr>
+            <tr><td><span class="accent-text">Page Table</span></td><td>Per-process mapping of virtual pages to physical frames</td></tr>
+            <tr><td><span class="accent-text">Disk (Swap Space)</span></td><td>Secondary storage holding pages not currently in RAM</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>Control Structures</h3>
+      <ul class="styled-list">
+        <li><span class="highlight">Page Table:</span> Virtual page number → frame number + control bits (valid, dirty, referenced).</li>
+        <li><span class="highlight">Inverted Page Table:</span> One entry per frame (indexed by frame number), saves space for large address spaces.</li>
+        <li><span class="highlight">Swap Space Table:</span> Tracks disk location of each swapped-out page.</li>
+        <li><span class="highlight">Frame Table:</span> OS-maintained table of all physical frames (free/occupied).</li>
+      </ul>
+    </div>
+
+    <!-- ═══════════════════════════════ 5.5 ═══════════════════════════════ -->
+    <div class="section" id="s5">
+      <div class="section-header">
+        <span class="section-num">5.5</span>
+        <h2>Locality, Page Fault, Working Set & Demand Paging</h2>
+      </div>
+
+      <h3>Locality of Reference</h3>
+      <div class="info-box success">
+        <strong>Principle of Locality</strong>
+        Programs tend to access the <span class="success-text">same set of memory locations</span> repeatedly over a short period of time. This makes caching (TLB, page frames) effective.
+      </div>
+
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-icon">🕐</div>
+          <div class="card-title">Temporal Locality</div>
+          <div class="card-body">A recently accessed item is likely to be accessed again soon. Example: loop variables accessed repeatedly.</div>
+        </div>
+        <div class="card">
+          <div class="card-icon">📍</div>
+          <div class="card-title">Spatial Locality</div>
+          <div class="card-body">Items near recently accessed items are likely to be accessed. Example: sequential array traversal, instructions in a loop.</div>
+        </div>
+      </div>
+
+      <h3>Page Fault</h3>
+      <div class="info-box danger">
+        <strong>Page Fault</strong>
+        Occurs when a process tries to access a page that is <span class="danger-text">not currently in RAM</span> (valid bit = 0). The OS must load it from disk.
+      </div>
+
+      <p><span class="highlight">Page Fault Handling Steps:</span></p>
+      <ul class="styled-list">
+        <li>CPU generates page fault trap → OS takes control.</li>
+        <li>OS checks if reference is valid (legal address?). If not → abort process.</li>
+        <li>Find a free frame. If none, use a <span class="warn-text">page replacement algorithm</span>.</li>
+        <li>Schedule disk I/O to load the required page into the free frame.</li>
+        <li>Update page table (set valid bit = 1, record frame number).</li>
+        <li>Restart the faulting instruction.</li>
+      </ul>
+
+      <h3>Working Set Model</h3>
+      <div class="info-box">
+        <strong>Working Set W(t, Δ)</strong>
+        The set of pages used by a process in the last <span class="accent-text">Δ</span> time units (the working set window). A process needs all its working set pages in memory to run efficiently.
+      </div>
+
+      <div class="diagram">
+        <div class="ws-timeline">
+          <div class="ws-row">
+            <div class="ws-label">References:</div>
+            <div class="ws-cell active">2</div><div class="ws-cell active">3</div><div class="ws-cell active">2</div>
+            <div class="ws-cell active">1</div><div class="ws-cell active">5</div><div class="ws-cell window">2</div>
+            <div class="ws-cell window">4</div><div class="ws-cell window">5</div><div class="ws-cell window">3</div>
+            <div class="ws-cell window">2</div>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;padding-left:70px;margin-top:4px;">
+            <div class="ws-cell window" style="width:auto;padding:0 10px;font-size:10px;">Δ = 5 window →</div>
+            <div style="font-size:12px;color:var(--accent3);">Working Set = {2, 3, 4, 5}</div>
+          </div>
+        </div>
+      </div>
+
+      <h3>Dirty Page / Dirty Bit</h3>
+      <div class="info-box warning">
+        <strong>Dirty Bit (Modified Bit)</strong>
+        A bit in the page table entry. Set to <span class="warn-text">1</span> when a page is written to (modified in RAM). When this page must be replaced, it must be written back to disk. If dirty bit = 0 (clean), no write-back needed — saves disk I/O.
+      </div>
+
+      <h3>Demand Paging</h3>
+      <div class="info-box success">
+        <strong>Demand Paging</strong>
+        Pages are loaded into memory <span class="success-text">only when demanded</span> (on first access). No page is loaded until it is needed.
+      </div>
+      <ul class="styled-list">
+        <li>Lazy loading — reduces startup time of processes.</li>
+        <li>Works hand-in-hand with virtual memory and page fault handling.</li>
+        <li>Requires valid/invalid bits in page table.</li>
+        <li><span class="highlight">Pure demand paging:</span> Start with zero pages in RAM; load each on first access.</li>
+        <li><span class="highlight">Performance:</span> Effective access time = (1 - p) × memory access + p × page fault service time, where p = page fault rate.</li>
+      </ul>
+
+      <div class="formula">
+        <span class="label">Effective Access Time</span>
+        EAT = (1 - p) × ma + p × page_fault_time
+
+        Where:
+          p   = page fault rate (0 ≤ p ≤ 1)
+          ma  = memory access time (~200ns)
+          page_fault_time ≈ 8ms (disk seek + latency + transfer)
+        
+        To keep EAT < 10% degradation: p < 1/400,000
+      </div>
+    </div>
+
+    <!-- ═══════════════════════════════ 5.6 ═══════════════════════════════ -->
+    <div class="section" id="s6">
+      <div class="section-header">
+        <span class="section-num">5.6</span>
+        <h2>Page Replacement Algorithms</h2>
+      </div>
+
+      <p>When a page fault occurs and no free frame is available, the OS must select a <span class="highlight">victim page</span> to evict. The algorithm to choose the victim is the page replacement algorithm. Goal: minimize page faults.</p>
+
+      <div class="info-box">
+        <strong>Reference String for all examples below:</strong>
+        <span style="font-family:'JetBrains Mono',monospace;color:var(--accent);font-size:14px;">7, 0, 1, 2, 0, 3, 0, 4, 2, 3, 0, 3, 2</span>&nbsp;&nbsp;| Number of Frames = <span style="color:var(--accent3);">3</span>
+      </div>
+
+      <!-- OPTIMAL -->
+      <h3>1. Optimal Algorithm (OPT / Bélády's)</h3>
+      <div class="info-box success">
+        <strong>Idea</strong>
+        Replace the page that will <span class="success-text">not be used for the longest time</span> in the future. Gives minimum possible page faults. Theoretical — requires future knowledge (used as benchmark).
+      </div>
+
+      <div class="algo-trace">
+        <div class="algo-title">OPT — Reference: 7 0 1 2 0 3 0 4 2 3 0 3 2 | Frames = 3</div>
+        <div class="trace-row">
+          <div class="trace-label">Ref →</div>
+          <div class="frame">7</div><div class="frame">0</div><div class="frame">1</div>
+          <div class="frame">2</div><div class="frame">0</div><div class="frame">3</div>
+          <div class="frame">0</div><div class="frame">4</div><div class="frame">2</div>
+          <div class="frame">3</div><div class="frame">0</div><div class="frame">3</div>
+          <div class="frame">2</div>
+        </div>
+        <div style="margin-top:10px;font-size:13px;color:var(--text-dim);">
+          Page Faults = <span style="color:var(--accent5);font-weight:700;font-family:'JetBrains Mono',monospace;">9</span> &nbsp;|&nbsp; OPT is the theoretical minimum.
+        </div>
+      </div>
+
+      <!-- FIFO -->
+      <h3>2. FIFO — First In First Out</h3>
+      <div class="info-box">
+        <strong>Idea</strong>
+        Replace the page that has been in memory the <span class="accent-text">longest</span> (oldest arrival). Maintain a queue of pages; evict from the front.
+      </div>
+      <ul class="styled-list">
+        <li>Simple to implement using a circular queue.</li>
+        <li>Suffers from <span class="danger-text">Bélády's Anomaly</span> — more frames can cause more page faults!</li>
+      </ul>
+
+      <div class="algo-trace">
+        <div class="algo-title">FIFO — Reference: 7 0 1 2 0 3 0 4 2 3 0 3 2 | Frames = 3</div>
+        <div class="trace-row">
+          <div class="trace-label">Ref →</div>
+          <div class="frame fault">7</div><div class="frame fault">0</div><div class="frame fault">1</div>
+          <div class="frame fault">2</div><div class="frame hit">0</div><div class="frame fault">3</div>
+          <div class="frame fault">0</div><div class="frame fault">4</div><div class="frame fault">2</div>
+          <div class="frame fault">3</div><div class="frame fault">0</div><div class="frame hit">3</div>
+          <div class="frame hit">2</div>
+        </div>
+        <div style="margin-top:10px;font-size:13px;color:var(--text-dim);">
+          Page Faults = <span style="color:var(--accent5);font-weight:700;font-family:'JetBrains Mono',monospace;">12</span> &nbsp;|&nbsp;
+          <span style="font-size:11px;font-family:'JetBrains Mono',monospace;">F=fault  H=hit</span>
+        </div>
+      </div>
+
+      <div class="info-box danger">
+        <strong>Bélády's Anomaly</strong>
+        In FIFO (and some others), increasing the number of frames can sometimes <span class="danger-text">increase</span> page faults. Not a problem with OPT or LRU (stack algorithms).
+      </div>
+
+      <!-- SECOND CHANCE -->
+      <h3>3. Second Chance (SC) Algorithm</h3>
+      <div class="info-box warning">
+        <strong>Idea</strong>
+        Modified FIFO. Each page has a <span class="warn-text">reference bit (R)</span>. When a page is referenced, R=1. On replacement: check oldest page — if R=0, evict it; if R=1, give it a second chance (reset R=0, move to end of queue), continue.
+      </div>
+      <ul class="styled-list">
+        <li>Also called <span class="highlight">Clock Algorithm</span> (pages arranged in circular buffer with clock hand).</li>
+        <li>Avoids evicting frequently used pages unlike pure FIFO.</li>
+        <li>Approximates LRU without the expensive timestamp tracking.</li>
+        <li>If all pages have R=1, degenerates to FIFO (all get second chance).</li>
+      </ul>
+
+      <div class="diagram">
+        <div style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text-muted);margin-bottom:14px;">CLOCK / SECOND CHANCE — Circular Buffer with Clock Hand</div>
+        <div style="position:relative;width:200px;height:200px;">
+          <svg viewBox="0 0 200 200" width="200" height="200">
+            <circle cx="100" cy="100" r="80" fill="none" stroke="#1e2d4a" stroke-width="2"/>
+            <!-- Pages as boxes on the circle -->
+            <rect x="85" y="10" width="30" height="26" rx="4" fill="rgba(0,212,255,0.15)" stroke="rgba(0,212,255,0.4)" stroke-width="1"/>
+            <text x="100" y="22" text-anchor="middle" fill="#00d4ff" font-size="11" font-family="JetBrains Mono">P2</text>
+            <text x="100" y="32" text-anchor="middle" fill="#64748b" font-size="9" font-family="JetBrains Mono">R=1</text>
+
+            <rect x="160" y="45" width="30" height="26" rx="4" fill="rgba(16,185,129,0.15)" stroke="rgba(16,185,129,0.4)" stroke-width="1"/>
+            <text x="175" y="57" text-anchor="middle" fill="#10b981" font-size="11" font-family="JetBrains Mono">P5</text>
+            <text x="175" y="67" text-anchor="middle" fill="#64748b" font-size="9" font-family="JetBrains Mono">R=0</text>
+
+            <rect x="164" y="130" width="30" height="26" rx="4" fill="rgba(244,63,94,0.15)" stroke="rgba(244,63,94,0.4)" stroke-width="1"/>
+            <text x="179" y="142" text-anchor="middle" fill="#f43f5e" font-size="11" font-family="JetBrains Mono">P3</text>
+            <text x="179" y="152" text-anchor="middle" fill="#64748b" font-size="9" font-family="JetBrains Mono">R=0</text>
+
+            <rect x="85" y="165" width="30" height="26" rx="4" fill="rgba(124,58,237,0.15)" stroke="rgba(124,58,237,0.4)" stroke-width="1"/>
+            <text x="100" y="177" text-anchor="middle" fill="#a78bfa" font-size="11" font-family="JetBrains Mono">P7</text>
+            <text x="100" y="187" text-anchor="middle" fill="#64748b" font-size="9" font-family="JetBrains Mono">R=1</text>
+
+            <rect x="10" y="130" width="30" height="26" rx="4" fill="rgba(245,158,11,0.15)" stroke="rgba(245,158,11,0.4)" stroke-width="1"/>
+            <text x="25" y="142" text-anchor="middle" fill="#f59e0b" font-size="11" font-family="JetBrains Mono">P1</text>
+            <text x="25" y="152" text-anchor="middle" fill="#64748b" font-size="9" font-family="JetBrains Mono">R=0</text>
+
+            <rect x="10" y="45" width="30" height="26" rx="4" fill="rgba(0,212,255,0.15)" stroke="rgba(0,212,255,0.3)" stroke-width="1"/>
+            <text x="25" y="57" text-anchor="middle" fill="#94a3b8" font-size="11" font-family="JetBrains Mono">P0</text>
+            <text x="25" y="67" text-anchor="middle" fill="#64748b" font-size="9" font-family="JetBrains Mono">R=1</text>
+
+            <!-- Clock hand -->
+            <line x1="100" y1="100" x2="175" y2="58" stroke="#f59e0b" stroke-width="2" marker-end="url(#arrow)"/>
+            <defs><marker id="arrow" markerWidth="6" markerHeight="6" refX="3" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#f59e0b"/></marker></defs>
+            <circle cx="100" cy="100" r="5" fill="#f59e0b"/>
+            <text x="100" y="97" text-anchor="middle" fill="#f59e0b" font-size="9" font-family="JetBrains Mono">ptr</text>
+          </svg>
+        </div>
+        <div style="font-size:12px;color:var(--text-dim);margin-top:8px;">Clock hand points to next candidate. R=0 → evict. R=1 → reset to 0, advance hand.</div>
+      </div>
+
+      <!-- NRU -->
+      <h3>4. NRU — Not Recently Used</h3>
+      <div class="info-box">
+        <strong>Idea</strong>
+        Classify pages into 4 classes using <span class="accent-text">Referenced (R)</span> and <span class="accent-text">Modified (M)</span> bits. Evict from the lowest-priority class first.
+      </div>
+
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Class</th><th>Referenced (R)</th><th>Modified (M)</th><th>Priority</th></tr></thead>
+          <tbody>
+            <tr><td><span class="success-text">Class 0</span></td><td>0</td><td>0</td><td>Best victim (evict first)</td></tr>
+            <tr><td><span class="accent-text">Class 1</span></td><td>0</td><td>1</td><td>Not referenced, but dirty</td></tr>
+            <tr><td><span class="warn-text">Class 2</span></td><td>1</td><td>0</td><td>Referenced, not dirty</td></tr>
+            <tr><td><span class="danger-text">Class 3</span></td><td>1</td><td>1</td><td>Worst victim (evict last)</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <ul class="styled-list">
+        <li>R bits are cleared periodically (on each clock tick/interrupt).</li>
+        <li>Evict a random page from the lowest non-empty class.</li>
+        <li>Simple approximation of LRU. Prefers clean (M=0) pages since no disk write needed.</li>
+      </ul>
+
+      <!-- LRU -->
+      <h3>5. LRU — Least Recently Used</h3>
+      <div class="info-box success">
+        <strong>Idea</strong>
+        Replace the page that has <span class="success-text">not been used for the longest time</span>. Based on temporal locality — past use predicts future use.
+      </div>
+      <ul class="styled-list">
+        <li>Optimal in practice — very close to OPT performance.</li>
+        <li>Does <span class="highlight">not</span> suffer from Bélády's Anomaly (it's a stack algorithm).</li>
+      </ul>
+
+      <p><span class="highlight">Implementation Approaches:</span></p>
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-title">Counter / Timestamps</div>
+          <div class="card-body">Each page table entry stores a timestamp of last access. On replacement, evict page with smallest timestamp. Expensive to search all entries.</div>
+        </div>
+        <div class="card">
+          <div class="card-title">Stack (Doubly Linked List)</div>
+          <div class="card-body">Maintain a stack of page numbers. On access, move page to top. Evict from bottom. O(1) removal with doubly-linked list + hash map.</div>
+        </div>
+      </div>
+
+      <div class="algo-trace">
+        <div class="algo-title">LRU — Reference: 7 0 1 2 0 3 0 4 2 3 0 3 2 | Frames = 3</div>
+        <div class="trace-row">
+          <div class="trace-label">Ref →</div>
+          <div class="frame fault">7</div><div class="frame fault">0</div><div class="frame fault">1</div>
+          <div class="frame fault">2</div><div class="frame hit">0</div><div class="frame fault">3</div>
+          <div class="frame fault">0</div><div class="frame fault">4</div><div class="frame fault">2</div>
+          <div class="frame fault">3</div><div class="frame fault">0</div><div class="frame hit">3</div>
+          <div class="frame hit">2</div>
+        </div>
+        <div style="margin-top:10px;font-size:13px;color:var(--text-dim);">
+          Page Faults = <span style="color:var(--accent5);font-weight:700;font-family:'JetBrains Mono',monospace;">10</span>
+        </div>
+      </div>
+
+      <h3>Comparison Summary</h3>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Algorithm</th><th>Basis</th><th>Page Faults*</th><th>Bélády's Anomaly</th><th>Practical?</th></tr></thead>
+          <tbody>
+            <tr><td><span class="success-text">Optimal (OPT)</span></td><td>Farthest future use</td><td>Minimum (9)</td><td>No</td><td>No (benchmark only)</td></tr>
+            <tr><td><span class="accent-text">LRU</span></td><td>Least recent use</td><td>~10</td><td>No</td><td>Expensive but good</td></tr>
+            <tr><td><span class="warn-text">Second Chance</span></td><td>R bit + FIFO order</td><td>~10-11</td><td>Rare</td><td>Yes (Clock)</td></tr>
+            <tr><td><span class="accent-text">NRU</span></td><td>R+M bits classification</td><td>~10-11</td><td>No</td><td>Yes (simple)</td></tr>
+            <tr><td><span class="danger-text">FIFO</span></td><td>Oldest in memory</td><td>~12</td><td>Yes ⚠️</td><td>Yes (simple)</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p style="font-size:12px;color:var(--text-muted);">* For reference string: 7 0 1 2 0 3 0 4 2 3 0 3 2 with 3 frames</p>
+
+    </div><!-- end section 5.6 -->
+
+  </div><!-- end content -->
+</main>
+
+<button id="topBtn" onclick="window.scrollTo({top:0,behavior:'smooth'})">↑ TOP</button>
+
+<script>
+  // Progress bar
+  window.addEventListener('scroll', () => {
+    const el = document.getElementById('main');
+    const scrollTop = window.scrollY;
+    const docHeight = document.body.scrollHeight - window.innerHeight;
+    const progress = scrollTop / docHeight;
+    document.getElementById('progress').style.transform = `scaleX(${progress})`;
+
+    // top button
+    const btn = document.getElementById('topBtn');
+    btn.classList.toggle('show', scrollTop > 300);
+  });
+
+  // Sidebar active nav
+  const sections = document.querySelectorAll('.section');
+  const navItems = document.querySelectorAll('.nav-item');
+
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        const id = entry.target.id;
+        navItems.forEach(n => {
+          n.classList.toggle('active', n.getAttribute('href') === `#${id}`);
+        });
+      }
+    });
+  }, { threshold: 0.3 });
+
+  sections.forEach(s => observer.observe(s));
+
+  // Stagger section animations
+  sections.forEach((s, i) => {
+    s.style.animationDelay = `${i * 0.07}s`;
+  });
+</script>
+</body>
+</html>
